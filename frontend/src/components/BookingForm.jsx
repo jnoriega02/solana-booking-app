@@ -1,90 +1,132 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-const BookingForm = ({ provider }) => {
+const BookingForm = ({ provider, availability = [], userWallet }) => {
   const [form, setForm] = useState({
-    service: "",
+    service_id: "",
     date: "",
     time: "",
     paymentMethod: "eth",
+    user_wallet: userWallet || "",
+    notes: "",
   });
 
   const [step, setStep] = useState(1);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
-  const services = [
-    { id: "cut", name: "Haircut", price: "0.02 ETH", duration: "30 min" },
-    {
-      id: "style",
-      name: "Hair Styling",
-      price: "0.025 ETH",
-      duration: "45 min",
-    },
-    { id: "combo", name: "Cut + Style", price: "0.04 ETH", duration: "75 min" },
-    {
-      id: "color",
-      name: "Hair Coloring",
-      price: "0.08 ETH",
-      duration: "120 min",
-    },
-    {
-      id: "treatment",
-      name: "Hair Treatment",
-      price: "0.06 ETH",
-      duration: "60 min",
-    },
-  ];
+  const services = provider?.services || [];
 
-  const timeSlots = [
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "12:00",
-    "12:30",
-    "13:00",
-    "13:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-    "17:30",
-  ];
+  // Generate time slots based on availability
+  const generateTimeSlots = (selectedDate) => {
+    const dayOfWeek = new Date(selectedDate).getDay();
+    const dayAvailability = availability.filter(
+      (slot) => slot.weekday === dayOfWeek,
+    );
+
+    const slots = [];
+    dayAvailability.forEach((slot) => {
+      const start = new Date(`2000-01-01T${slot.start_time}`);
+      const end = new Date(`2000-01-01T${slot.end_time}`);
+
+      while (start < end) {
+        slots.push(start.toTimeString().slice(0, 5));
+        start.setMinutes(start.getMinutes() + 30);
+      }
+    });
+
+    return slots;
+  };
+
+  useEffect(() => {
+    if (form.date) {
+      setAvailableSlots(generateTimeSlots(form.date));
+    }
+  }, [form.date, availability]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const connectWallet = async () => {
+    setIsConnectingWallet(true);
+    try {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
+        setForm({ ...form, user_wallet: accounts[0] });
+      } else {
+        alert("Please install MetaMask or another Web3 wallet");
+      }
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      alert("Failed to connect wallet");
+    }
+    setIsConnectingWallet(false);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Booking Submitted:", {
-      providerId: provider.id,
-      providerName: provider.name,
-      ...form,
-    });
+
+    if (!form.user_wallet) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    const bookingData = {
+      provider_id: provider.id,
+      service_id: form.service_id,
+      user_wallet: form.user_wallet,
+      start_at: new Date(`${form.date}T${form.time}`).toISOString(),
+      status: "pending",
+      paid: false,
+      notes: form.notes,
+    };
+
+    console.log("Booking Submitted:", bookingData);
+
+    // Here you would typically send the booking to your backend
+    // For now, we'll simulate the process
     alert(
       `Booking with ${provider.name} confirmed! Payment will be processed via ${form.paymentMethod.toUpperCase()}.`,
     );
   };
 
-  const selectedService = services.find((s) => s.id === form.service);
+  const selectedService = services.find((s) => s.id === form.service_id);
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
-        <div className="flex items-center space-x-4">
-          <img
-            src={provider.image}
-            alt={provider.name}
-            className="w-12 h-12 rounded-full object-cover"
-          />
-          <div>
-            <h2 className="text-xl font-bold text-white">{provider.name}</h2>
-            <p className="text-purple-100 text-sm">{provider.description}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <img
+              src={provider.image_url}
+              alt={provider.name}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+            <div>
+              <h2 className="text-xl font-bold text-white">{provider.name}</h2>
+              <p className="text-purple-100 text-sm">{provider.description}</p>
+              <p className="text-purple-200 text-xs">{provider.location}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-purple-100 text-sm">{provider.category}</p>
+            {!form.user_wallet ? (
+              <button
+                onClick={connectWallet}
+                disabled={isConnectingWallet}
+                className="mt-2 bg-white text-purple-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+              >
+                {isConnectingWallet ? "Connecting..." : "Connect Wallet"}
+              </button>
+            ) : (
+              <p className="text-purple-200 text-xs mt-2">
+                Wallet: {form.user_wallet.slice(0, 6)}...
+                {form.user_wallet.slice(-4)}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -137,7 +179,7 @@ const BookingForm = ({ provider }) => {
                 <label
                   key={service.id}
                   className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all ${
-                    form.service === service.id
+                    form.service_id === service.id
                       ? "border-purple-500 bg-purple-50"
                       : "border-gray-200 hover:border-gray-300"
                   }`}
@@ -145,31 +187,37 @@ const BookingForm = ({ provider }) => {
                   <div className="flex items-center space-x-3">
                     <input
                       type="radio"
-                      name="service"
+                      name="service_id"
                       value={service.id}
-                      checked={form.service === service.id}
+                      checked={form.service_id === service.id}
                       onChange={handleChange}
                       className="text-purple-600"
                     />
                     <div>
                       <div className="font-medium">{service.name}</div>
                       <div className="text-sm text-gray-500">
-                        {service.duration}
+                        {service.description}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Duration: {service.duration} min
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold text-purple-600">
-                      {service.price}
+                      {service.price} ETH
                     </div>
+                    {!service.active && (
+                      <div className="text-xs text-red-500">Unavailable</div>
+                    )}
                   </div>
                 </label>
               ))}
             </div>
             <button
               type="button"
-              onClick={() => form.service && setStep(2)}
-              disabled={!form.service}
+              onClick={() => form.service_id && setStep(2)}
+              disabled={!form.service_id}
               className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
             >
               Continue to Date & Time
@@ -210,28 +258,34 @@ const BookingForm = ({ provider }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Available Times
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {timeSlots.map((time) => (
-                  <label
-                    key={time}
-                    className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all ${
-                      form.time === time
-                        ? "border-purple-500 bg-purple-50 text-purple-700"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="time"
-                      value={time}
-                      checked={form.time === time}
-                      onChange={handleChange}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">{time}</span>
-                  </label>
-                ))}
-              </div>
+              {availableSlots.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {availableSlots.map((time) => (
+                    <label
+                      key={time}
+                      className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all ${
+                        form.time === time
+                          ? "border-purple-500 bg-purple-50 text-purple-700"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="time"
+                        value={time}
+                        checked={form.time === time}
+                        onChange={handleChange}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-medium">{time}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  No available slots for this date
+                </p>
+              )}
             </div>
 
             <button
@@ -283,7 +337,7 @@ const BookingForm = ({ provider }) => {
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
                     <span className="text-purple-600">
-                      {selectedService?.price}
+                      {selectedService?.price} ETH
                     </span>
                   </div>
                 </div>
@@ -362,12 +416,31 @@ const BookingForm = ({ provider }) => {
               </label>
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 px-4 rounded-lg hover:from-purple-700 hover:to-purple-800 font-medium"
-            >
-              Confirm Booking & Pay {selectedService?.price}
-            </button>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Any special requests or notes..."
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!form.user_wallet}
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 px-4 rounded-lg hover:from-purple-700 hover:to-purple-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {!form.user_wallet
+                  ? "Connect Wallet to Continue"
+                  : `Confirm Booking & Pay ${selectedService?.price} ETH`}
+              </button>
+            </div>
           </div>
         )}
       </form>

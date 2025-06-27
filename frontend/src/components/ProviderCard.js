@@ -1,41 +1,91 @@
 import React from "react";
 
 const ProviderCard = ({
+  id,
   name,
   description,
-  image,
-  rating,
-  reviews,
-  price,
+  image_url,
+  category,
+  location,
+  wallet,
+  email,
+  phone,
+  services = [],
+  reviews = [],
   onSelect,
+  onViewBookings,
+  isProvider = false,
 }) => {
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+      : 0;
+
+  const lowestPrice =
+    services.length > 0 ? Math.min(...services.map((s) => s.price)) : 0;
+
   return (
-    <div
-      onClick={onSelect}
-      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100 overflow-hidden"
-    >
+    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 overflow-hidden">
       {/* Image */}
       <div className="relative">
-        <img src={image} alt={name} className="h-48 w-full object-cover" />
+        <img src={image_url} alt={name} className="h-48 w-full object-cover" />
         <div className="absolute top-3 right-3 bg-white rounded-full px-2 py-1 shadow-sm">
-          <span className="text-sm font-semibold text-purple-600">{price}</span>
+          <span className="text-sm font-semibold text-purple-600">
+            From {lowestPrice} ETH
+          </span>
+        </div>
+        <div className="absolute top-3 left-3 bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-medium">
+          {category}
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">{name}</h3>
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{description}</p>
+        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{description}</p>
+        <p className="text-xs text-gray-500 mb-3 flex items-center">
+          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {location}
+        </p>
+
+        {/* Services */}
+        {services.length > 0 && (
+          <div className="mb-3">
+            <div className="flex flex-wrap gap-1">
+              {services.slice(0, 3).map((service) => (
+                <span
+                  key={service.id}
+                  className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
+                >
+                  {service.name}
+                </span>
+              ))}
+              {services.length > 3 && (
+                <span className="text-xs text-gray-500">
+                  +{services.length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Rating and Reviews */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-1">
             <div className="flex items-center">
               {[...Array(5)].map((_, i) => (
                 <svg
                   key={i}
                   className={`w-4 h-4 ${
-                    i < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"
+                    i < Math.floor(averageRating)
+                      ? "text-yellow-400"
+                      : "text-gray-300"
                   }`}
                   fill="currentColor"
                   viewBox="0 0 20 20"
@@ -44,8 +94,10 @@ const ProviderCard = ({
                 </svg>
               ))}
             </div>
-            <span className="text-sm font-medium text-gray-900">{rating}</span>
-            <span className="text-sm text-gray-500">({reviews})</span>
+            <span className="text-sm font-medium text-gray-900">
+              {averageRating.toFixed(1)}
+            </span>
+            <span className="text-sm text-gray-500">({reviews.length})</span>
           </div>
 
           {/* Crypto Badge */}
@@ -55,10 +107,38 @@ const ProviderCard = ({
           </div>
         </div>
 
-        {/* Book Button */}
-        <button className="w-full mt-4 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium">
-          Book Now
-        </button>
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {!isProvider ? (
+            <button
+              onClick={() =>
+                onSelect({
+                  id,
+                  name,
+                  description,
+                  image_url,
+                  category,
+                  location,
+                  wallet,
+                  email,
+                  phone,
+                  services,
+                  reviews,
+                })
+              }
+              className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            >
+              Book Now
+            </button>
+          ) : (
+            <button
+              onClick={() => onViewBookings(id)}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              View Bookings
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
